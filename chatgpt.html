@@ -1,0 +1,23 @@
+# Define the URL
+$url = "https://example.com"
+
+# Start a new Chrome process and navigate to the URL
+$chromeProcess = Start-Process "chrome.exe" $url -PassThru
+
+# Wait for the website to load
+Start-Sleep -Seconds 5
+
+# Get the Chrome process ID
+$chromeProcessId = $chromeProcess.Id
+
+# Get the response headers from the Chrome process
+$headers = Get-Process -Id $chromeProcessId | Select-Object -ExpandProperty MainWindowHandle | % { (New-Object -ComObject 'Shell.Application').Windows() | ? { $_.HWND -eq $_ } } | Select-Object -ExpandProperty Document | Select-Object -ExpandProperty Cookie
+
+# Extract the JSESSIONID and other cookies from the headers
+$cookies = $headers -split ";" | Select-String -Pattern "JSESSIONID|cookie1|cookie2" | Select-Object -ExpandProperty Line
+
+# Print the cookies to the console
+$cookies
+
+# Close the Chrome process
+Stop-Process $chromeProcessId
