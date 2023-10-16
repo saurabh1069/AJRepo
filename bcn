@@ -50,11 +50,10 @@ Function Send-Final-Email($originalEmail) {
     $finalEmail.Send()
 }
 
-# Process emails in parallel
-$emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
-$emailsTesting1 | ForEach-Object -Parallel {
-    param ($email)
-
+# Create a script block to process emails
+$scriptBlock = {
+    param ($email, $folderTesting, $jobId)
+    
     if ($email.ConversationID) {
         $conversationID = $email.ConversationID
         $originalEmail = $latestEmails[$conversationID]
@@ -86,8 +85,40 @@ $emailsTesting1 | ForEach-Object -Parallel {
                 }
             }
         }
+        
+        # Indicate that this job has completed
+        Write-Progress -Id $jobId -Status "Job Completed" -Completed
     }
-} -ThrottleLimit 5  # Adjust the ThrottleLimit based on the desired degree of parallelism
+}
+
+# Process emails in "Testing1" using jobs for multi-threading
+$emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
+
+# Create an array to track job IDs
+$jobIds = @()
+
+foreach ($email in $emailsTesting1) {
+    # Start a job for each email
+    $jobId = (Get-UniqueJobId)
+    $jobIds += $jobId
+    Start-Job -ScriptBlock $scriptBlock -ArgumentList $email, $folderTesting, $jobId
+    Write-Progress -Id $jobId -Status "Job Started" -PercentComplete ($jobIds.Count / $emailsTesting1.Count * 100)
+}
+
+# Wait for all jobs to complete
+Do {
+    $completedJobs = Get-Job | Where-Object { $_.State -eq 'Completed' }
+    Write-Progress -Status "Processing Jobs" -PercentComplete ($completedJobs.Count / $jobIds.Count * 100)
+    Start-Sleep -Seconds 1
+} While ($completedJobs.Count -lt $jobIds.Count)
+
+# Receive and remove jobs
+$completedJobs | ForEach-Object {
+    $jobId = $_.Id
+    Receive-Job -Id $jobId
+    Write-Progress -Id $jobId -Status "Job Completed" -Completed
+    $jobIds = $jobIds | Where-Object { $_ -ne $jobId }
+}
 
 # Release COM objects
 [System.Runtime.Interopservices.Marshal]::ReleaseComObject($Outlook) | Out-Null
