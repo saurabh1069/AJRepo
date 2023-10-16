@@ -1,0 +1,24 @@
+# Load the Outlook COM object
+Add-Type -AssemblyName 'Microsoft.Office.Interop.Outlook'
+$Outlook = New-Object -ComObject Outlook.Application
+
+# Get the Outlook Namespace
+$namespace = $Outlook.GetNamespace("MAPI")
+
+# Get the root folder of the mailbox
+$mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
+
+# Define a function to recursively list folder EntryIDs
+Function Get-FolderEntryIDs($folder, $parentPath = "") {
+    foreach ($subfolder in $folder.Folders) {
+        $folderPath = Join-Path $parentPath $subfolder.Name
+        Write-Host "Folder: $folderPath - EntryID: $($subfolder.EntryID)"
+        Get-FolderEntryIDs $subfolder $folderPath
+    }
+}
+
+# Call the function for the mailbox root
+Get-FolderEntryIDs $mailbox
+
+# Release COM objects
+[System.Runtime.InteropServices.Marshal]::ReleaseComObject($Outlook) | Out-Null
