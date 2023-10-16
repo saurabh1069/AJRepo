@@ -20,10 +20,11 @@ $today = Get-Date
 # Hashtable to store the latest emails in conversations
 $latestEmails = @{}
 
-# Loop through emails in the "Testing" folder
+# Process emails in parallel
 $emails = $folder.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
+$emails | ForEach-Object -Parallel {
+    param ($email)
 
-foreach ($email in $emails) {
     if ($email.ConversationID) {
         $conversationID = $email.ConversationID
         $originalEmail = $latestEmails[$conversationID]
@@ -46,7 +47,7 @@ foreach ($email in $emails) {
             }
         }
     }
-}
+} -ThrottleLimit 5  # Adjust the ThrottleLimit based on the desired degree of parallelism
 
 # Release COM objects
 [System.Runtime.Interopservices.Marshal]::ReleaseComObject($Outlook) | Out-Null
