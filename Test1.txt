@@ -1,22 +1,26 @@
 # Load the Outlook COM object
 Add-Type -AssemblyName 'Microsoft.Office.Interop.Outlook'
 $Outlook = New-Object -ComObject Outlook.Application
-$Namespace = $Outlook.GetNamespace('MAPI')
 
-# Specify the name of your custom folder
-$customFolderName = "My Custom Folder"
+# Get the Outlook Namespace
+$namespace = $Outlook.GetNamespace("MAPI")
 
-# Get the folder by name
-$customFolder = $Namespace.Folders | ForEach-Object {
-    $_.Folders | Where-Object { $_.Name -eq $customFolderName }
+# Get the root folder of the mailbox
+$mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
+
+# Define a function to recursively list all folders
+Function Get-AllFolders($folder, $parentPath = "") {
+    $folders = $folder.Folders
+    for ($i = 1; $i -le $folders.Count; $i++) {
+        $subfolder = $folders.Item($i)
+        $folderPath = Join-Path $parentPath $subfolder.Name
+        Write-Host "Folder Path: $folderPath"
+        Get-AllFolders $subfolder $folderPath
+    }
 }
 
-if ($customFolder -ne $null) {
-    # The custom folder was found, retrieve its EntryID
-    $customFolder.EntryID
-} else {
-    Write-Host "Custom folder '$customFolderName' not found."
-}
+# Call the function for the mailbox root
+Get-AllFolders $mailbox
 
 # Release COM objects
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Outlook) | Out-Null
