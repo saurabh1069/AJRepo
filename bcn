@@ -3,11 +3,13 @@ Add-Type -AssemblyName 'Microsoft.Office.Interop.Outlook'
 $Outlook = New-Object -ComObject Outlook.Application
 $Namespace = $Outlook.GetNamespace('MAPI')
 
-# Specify the folder path you want to read emails from
-$folderPath = "Testing"
+# Specify the folder paths for "Testing" and "Testing1"
+$folderPathTesting = "Testing"
+$folderPathTesting1 = "Testing1"
 
-# Get the folder by path
-$folder = $Namespace.GetDefaultFolder('olFolderInbox').Folders.Item($folderPath)
+# Get the folders by path
+$folderTesting = $Namespace.GetDefaultFolder('olFolderInbox').Folders.Item($folderPathTesting)
+$folderTesting1 = $Namespace.GetDefaultFolder('olFolderInbox').Folders.Item($folderPathTesting1)
 
 # Define time intervals for reminders
 $firstReminderDays = 5
@@ -17,12 +19,12 @@ $thirdReminderDays = 2
 # Get today's date
 $today = Get-Date
 
-# Hashtable to store the latest emails in conversations
+# Hashtable to store the latest emails in "Testing" conversations
 $latestEmails = @{}
 
-# Process emails in parallel
-$emails = $folder.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
-$emails | ForEach-Object -Parallel {
+# Process emails in "Testing1"
+$emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
+$emailsTesting1 | ForEach-Object -Parallel {
     param ($email)
 
     if ($email.ConversationID) {
@@ -30,7 +32,7 @@ $emails | ForEach-Object -Parallel {
         $originalEmail = $latestEmails[$conversationID]
 
         if (-not $originalEmail) {
-            # New conversation, store the current email as the latest
+            # New conversation in "Testing1," store the current email as the latest
             $latestEmails[$conversationID] = $email
         } else {
             # Existing conversation, compare received times
@@ -38,12 +40,22 @@ $emails | ForEach-Object -Parallel {
             $timeSinceReceived = ($today - $originalReceivedDate).TotalDays
 
             if ($timeSinceReceived -ge $firstReminderDays) {
-                Send-Reminder $originalEmail "Reminder 1"
+                # Check if the email in "Testing1" has not been replied to in "Testing"
+                $correspondingEmailInTesting = $folderTesting.Items | Where-Object { $_.ConversationID -eq $conversationID }
+                if (-not $correspondingEmailInTesting) {
+                    Send-Reminder $originalEmail "Reminder 1"
+                }
             } elseif ($timeSinceReceived -ge ($firstReminderDays + $secondReminderDays)) {
-                Send-Reminder $originalEmail "Reminder 2"
+                $correspondingEmailInTesting = $folderTesting.Items | Where-Object { $_.ConversationID -eq $conversationID }
+                if (-not $correspondingEmailInTesting) {
+                    Send-Reminder $originalEmail "Reminder 2"
+                }
             } elseif ($timeSinceReceived -ge ($firstReminderDays + $secondReminderDays + $thirdReminderDays)) {
-                Send-Reminder $originalEmail "Reminder 3"
-                Send-Final-Email $originalEmail
+                $correspondingEmailInTesting = $folderTesting.Items | Where-Object { $_.ConversationID -eq $conversationID }
+                if (-not $correspondingEmailInTesting) {
+                    Send-Reminder $originalEmail "Reminder 3"
+                    Send-Final-Email $originalEmail
+                }
             }
         }
     }
