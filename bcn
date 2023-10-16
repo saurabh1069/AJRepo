@@ -1,31 +1,52 @@
 # Load the Outlook COM object
 Add-Type -AssemblyName 'Microsoft.Office.Interop.Outlook'
 $Outlook = New-Object -ComObject Outlook.Application
+$Namespace = $Outlook.GetNamespace('MAPI')
 
-# Get the Outlook Namespace
-$namespace = $Outlook.GetNamespace('MAPI')
+# Specify the folder path you want to read emails from
+$folderPath = "Testing"
 
-# Define a function to recursively retrieve folder statistics
-Function Get-FolderStatistics($folder) {
-    $folderName = $folder.Name
-    $itemCount = $folder.Items.Count
-    $unreadItemCount = $folder.Items.Restrict('[Unread] = True').Count
+# Get the folder by path
+$folder = $Namespace.GetDefaultFolder('olFolderInbox').Folders.Item($folderPath)
 
-    Write-Host "Folder Name: $folderName"
-    Write-Host "Total Items: $itemCount"
-    Write-Host "Unread Items: $unreadItemCount"
+# Define time intervals for reminders
+$firstReminderDays = 5
+$secondReminderDays = 2
+$thirdReminderDays = 2
 
-    # Recursively process subfolders
-    foreach ($subfolder in $folder.Folders) {
-        Get-FolderStatistics $subfolder
+# Get today's date
+$today = Get-Date
+
+# Hashtable to store the latest emails in conversations
+$latestEmails = @{}
+
+# Loop through emails in the "Testing" folder
+$emails = $folder.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
+
+foreach ($email in $emails) {
+    if ($email.ConversationID) {
+        $conversationID = $email.ConversationID
+        $originalEmail = $latestEmails[$conversationID]
+
+        if (-not $originalEmail) {
+            # New conversation, store the current email as the latest
+            $latestEmails[$conversationID] = $email
+        } else {
+            # Existing conversation, compare received times
+            $originalReceivedDate = $originalEmail.ReceivedTime
+            $timeSinceReceived = ($today - $originalReceivedDate).TotalDays
+
+            if ($timeSinceReceived -ge $firstReminderDays) {
+                Send-Reminder $originalEmail "Reminder 1"
+            } elseif ($timeSinceReceived -ge ($firstReminderDays + $secondReminderDays)) {
+                Send-Reminder $originalEmail "Reminder 2"
+            } elseif ($timeSinceReceived -ge ($firstReminderDays + $secondReminderDays + $thirdReminderDays)) {
+                Send-Reminder $originalEmail "Reminder 3"
+                Send-Final-Email $originalEmail
+            }
+        }
     }
 }
 
-# Get the root folder of the mailbox
-$mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
-
-# Call the function to start collecting folder statistics
-Get-FolderStatistics $mailbox
-
 # Release COM objects
-[System.Runtime.InteropServices.Marshal]::ReleaseComObject($Outlook) | Out-Null
+[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Outlook) | Out-Null
