@@ -8,17 +8,19 @@ $namespace = $Outlook.GetNamespace("MAPI")
 # Get the root folder of the mailbox
 $mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
 
-# Define a function to recursively list folder EntryIDs
-Function Get-FolderEntryIDs($folder, $parentPath = "") {
-    foreach ($subfolder in $folder.Folders) {
-        $folderPath = Join-Path $parentPath $subfolder.Name
-        Write-Host "Folder: $folderPath - EntryID: $($subfolder.EntryID)"
-        Get-FolderEntryIDs $subfolder $folderPath
+# Define a function to recursively list folder EntryIDs with unique identifiers
+Function Get-FolderEntryIDs($folder, $parentId) {
+    $folders = $folder.Folders
+    for ($i = 1; $i -le $folders.Count; $i++) {
+        $subfolder = $folders.Item($i)
+        $uniqueId = "$parentId/$i"
+        Write-Host "Folder: $($subfolder.Name) - EntryID: $($subfolder.EntryID) - Unique ID: $uniqueId"
+        Get-FolderEntryIDs $subfolder $uniqueId
     }
 }
 
 # Call the function for the mailbox root
-Get-FolderEntryIDs $mailbox
+Get-FolderEntryIDs $mailbox "1"
 
 # Release COM objects
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Outlook) | Out-Null
