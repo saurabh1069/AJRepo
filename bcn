@@ -22,7 +22,35 @@ $today = Get-Date
 # Hashtable to store the latest emails in "Testing" conversations
 $latestEmails = @{}
 
-# Process emails in "Testing1"
+# Function to send a reminder email
+Function Send-Reminder($originalEmail, $reminderNumber) {
+    # Create a new email item
+    $reminderEmail = $Outlook.CreateItem(0)
+    
+    # Set the properties of the reminder email
+    $reminderEmail.Subject = "Service Desk Reminder: $reminderNumber - $($originalEmail.Subject)"
+    $reminderEmail.Body = "This is a reminder for your Service Desk request: $($originalEmail.Subject)."
+    $reminderEmail.Recipients.Add($originalEmail.SenderEmailAddress)
+    
+    # Send the reminder email
+    $reminderEmail.Send()
+}
+
+# Function to send a final email
+Function Send-Final-Email($originalEmail) {
+    # Create a new email item
+    $finalEmail = $Outlook.CreateItem(0)
+    
+    # Set the properties of the final email
+    $finalEmail.Subject = "Service Desk Final Reminder - $($originalEmail.Subject)"
+    $finalEmail.Body = "This is the final reminder for your Service Desk request: $($originalEmail.Subject)."
+    $finalEmail.Recipients.Add($originalEmail.SenderEmailAddress)
+    
+    # Send the final email
+    $finalEmail.Send()
+}
+
+# Process emails in parallel
 $emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
 $emailsTesting1 | ForEach-Object -Parallel {
     param ($email)
