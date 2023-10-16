@@ -52,7 +52,7 @@ Function Send-Final-Email($originalEmail) {
 
 # Create a script block to process emails
 $scriptBlock = {
-    param ($email, $folderTesting, $jobId)
+    param ($email, $folderTesting)
     
     if ($email.ConversationID) {
         $conversationID = $email.ConversationID
@@ -85,9 +85,6 @@ $scriptBlock = {
                 }
             }
         }
-        
-        # Indicate that this job has completed
-        Write-Progress -Id $jobId -Status "Job Completed" -Completed
     }
 }
 
@@ -98,11 +95,10 @@ $emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Ge
 $jobIds = @()
 
 foreach ($email in $emailsTesting1) {
-    # Start a job for each email
-    $jobId = (Get-UniqueJobId)
-    $jobIds += $jobId
-    Start-Job -ScriptBlock $scriptBlock -ArgumentList $email, $folderTesting, $jobId
-    Write-Progress -Id $jobId -Status "Job Started" -PercentComplete ($jobIds.Count / $emailsTesting1.Count * 100)
+    # Start a job for each email with a unique job name
+    $jobName = "Job" + (Get-Date).Ticks
+    Start-Job -Name $jobName -ScriptBlock $scriptBlock -ArgumentList $email, $folderTesting
+    $jobIds += $jobName
 }
 
 # Wait for all jobs to complete
@@ -114,10 +110,10 @@ Do {
 
 # Receive and remove jobs
 $completedJobs | ForEach-Object {
-    $jobId = $_.Id
-    Receive-Job -Id $jobId
-    Write-Progress -Id $jobId -Status "Job Completed" -Completed
-    $jobIds = $jobIds | Where-Object { $_ -ne $jobId }
+    $jobName = $_.Name
+    Receive-Job -Name $jobName
+    Write-Progress -Status "Job Completed: $jobName" -Completed
+    $jobIds = $jobIds | Where-Object { $_ -ne $jobName }
 }
 
 # Release COM objects
