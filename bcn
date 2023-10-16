@@ -50,10 +50,10 @@ Function Send-Final-Email($originalEmail) {
     $finalEmail.Send()
 }
 
-# Create a script block to process emails
-$scriptBlock = {
-    param ($email, $folderTesting)
-    
+# Process emails in "Testing1"
+$emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
+
+foreach ($email in $emailsTesting1) {
     if ($email.ConversationID) {
         $conversationID = $email.ConversationID
         $originalEmail = $latestEmails[$conversationID]
@@ -86,38 +86,6 @@ $scriptBlock = {
             }
         }
     }
-}
-
-# Process emails in "Testing1" using jobs for multi-threading
-$emailsTesting1 = $folderTesting1.Items | Where-Object { $_.ReceivedTime -ge (Get-Date).AddDays(-7) }
-
-# Create an array to track job names
-$jobNames = @()
-
-foreach ($email in $emailsTesting1) {
-    # Start a job for each email with a unique job name
-    $jobName = "Job" + (Get-Date).Ticks
-    Start-Job -Name $jobName -ScriptBlock $scriptBlock -ArgumentList $email, $folderTesting
-    $jobNames += $jobName
-}
-
-# Wait for all jobs to complete
-Do {
-    $completedJobs = Get-Job | Where-Object { $_.State -eq 'Completed' }
-    $runningJobs = Get-Job | Where-Object { $_.State -eq 'Running' }
-    $totalJobs = $jobNames.Count
-    $completedCount = $completedJobs.Count
-    $runningCount = $runningJobs.Count
-
-    Write-Host "Completed Jobs: $completedCount / $totalJobs - Running Jobs: $runningCount / $totalJobs"
-    Start-Sleep -Seconds 1
-} While ($completedCount -lt $totalJobs)
-
-# Receive and remove jobs
-$completedJobs | ForEach-Object {
-    $jobName = $_.Name
-    Receive-Job -Name $jobName
-    $jobNames = $jobNames | Where-Object { $_ -ne $jobName }
 }
 
 # Release COM objects
