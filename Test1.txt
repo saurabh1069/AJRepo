@@ -1,26 +1,22 @@
 # Load the Outlook COM object
 Add-Type -AssemblyName 'Microsoft.Office.Interop.Outlook'
 $Outlook = New-Object -ComObject Outlook.Application
+$Namespace = $Outlook.GetNamespace('MAPI')
 
-# Get the Outlook Namespace
-$namespace = $Outlook.GetNamespace("MAPI")
+# Specify the name of your custom folder
+$customFolderName = "My Custom Folder"
 
-# Get the root folder of the mailbox
-$mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
-
-# Define a function to recursively list folder EntryIDs with unique identifiers
-Function Get-FolderEntryIDs($folder, $parentId) {
-    $folders = $folder.Folders
-    for ($i = 1; $i -le $folders.Count; $i++) {
-        $subfolder = $folders.Item($i)
-        $uniqueId = "$parentId/$i"
-        Write-Host "Folder: $($subfolder.Name) - EntryID: $($subfolder.EntryID) - Unique ID: $uniqueId"
-        Get-FolderEntryIDs $subfolder $uniqueId
-    }
+# Get the folder by name
+$customFolder = $Namespace.Folders | ForEach-Object {
+    $_.Folders | Where-Object { $_.Name -eq $customFolderName }
 }
 
-# Call the function for the mailbox root
-Get-FolderEntryIDs $mailbox "1"
+if ($customFolder -ne $null) {
+    # The custom folder was found, retrieve its EntryID
+    $customFolder.EntryID
+} else {
+    Write-Host "Custom folder '$customFolderName' not found."
+}
 
 # Release COM objects
 [System.Runtime.InteropServices.Marshal]::ReleaseComObject($Outlook) | Out-Null
