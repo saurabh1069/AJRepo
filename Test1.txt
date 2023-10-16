@@ -9,11 +9,13 @@ $namespace = $Outlook.GetNamespace("MAPI")
 $mailbox = $namespace.Folders.Item(1)  # 1 corresponds to the primary mailbox
 
 # Define a function to recursively list all folders
-Function Get-AllFolders($folder, $parentPath = "") {
+Function Get-AllFolders($folder, $parentPath = $null) {
     $folders = $folder.Folders
-    for ($i = 1; $i -le $folders.Count; $i++) {
-        $subfolder = $folders.Item($i)
-        $folderPath = Join-Path $parentPath $subfolder.Name
+    foreach ($subfolder in $folders) {
+        $folderPath = $subfolder.Name
+        if ($parentPath) {
+            $folderPath = "$parentPath\$folderPath"
+        }
         Write-Host "Folder Path: $folderPath"
         Get-AllFolders $subfolder $folderPath
     }
